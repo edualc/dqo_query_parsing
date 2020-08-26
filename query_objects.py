@@ -1,4 +1,5 @@
-import warnings
+import numpy as np
+
 
 class QueryObject():
     def __init__(self, raw_query):
@@ -28,6 +29,9 @@ class QueryObject():
         join.set_query(self)
         self.joins.append(join)
 
+        # Ensure that the same joins are in the same order every time
+        self.joins = sorted(self.joins, key=lambda e: str(e))
+
     def add_select_statement(self, select):
         self.select_statement = select
 
@@ -36,6 +40,26 @@ class QueryObject():
             alias = table
         
         self.tables[alias] = table
+
+    def generate_permutation(self):
+        def join_order(test_joins):
+            return list(map(lambda x: self.joins.index(x), np.random.permutation(test_joins)))
+
+        perm = np.random.permutation(self.joins)
+        key = 'L_' + '-'.join(map(lambda e: str(e), join_order(perm)))
+
+        return key, perm
+
+    def generate_permutation_from_ident(self, ident):
+        return list(map(lambda x: int(x), ident.split('_')[1].split('-')))
+
+    def generate_sql_from_ident(self, ident):
+        perm = self.generate_permutation_from_ident(ident)
+        order = [self.joins[i] for i in perm]
+
+        # import code; code.interact(local=dict(globals(), **locals()))
+        
+        return generate_sql(order)
 
     def print(self):
         print('')
@@ -96,7 +120,7 @@ class QueryObject():
                     # Neither tables are known. This is not a valid JOIN order
                     # 
                     warn_string = "The provided JOIN order is not valid.\n\tCurrently available table aliases are: {}\n\tThe requested join is: {}".format(used_tables, join.join_condition())
-                    warnings.warn(warn_string)
+                    raise ValueError(warn_string)
 
         base_query += " WHERE {}".format(self.filter_statement)
 
